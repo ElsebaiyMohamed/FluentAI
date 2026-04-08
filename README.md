@@ -77,34 +77,35 @@ Final Evaluation Report
 ```
 FluentAI/
 │
-├── app/                    # API & serving layer
-│   ├── flask_app.py
-│   ├── routes/
-│   └── schemas/
-│
-├── core/                   # Core ML logic
-│   ├── model.py            # Wav2Vec2 loading/inference
-│   ├── aligner.py          # CTC alignment
-│   ├── gop.py              # GOP scoring
-│   └── evaluator.py        # Final scoring pipeline
-│
-├── data/
-│   ├── samples/
-│   └── test_cases/
-│
-├── configs/
-│   └── config.yaml
-│
-├── utils/
-│   ├── audio.py
-│   └── text.py
-│
-├── demo/
-│   ├── gradio_app.py       # UI demo
-│
-├── notebooks/
-│
-├── tests/
+├── src/
+│   ├── app/                    # API & serving layer
+│   │   ├── flask_app.py
+│   │   ├── routes/
+│   │   └── schemas/
+│   │
+│   ├── core/                   # Core ML logic
+│   │   ├── model.py            # Wav2Vec2 loading/inference
+│   │   ├── aligner.py          # CTC alignment
+│   │   ├── gop.py              # GOP scoring
+│   │   └── evaluator.py        # Final scoring pipeline
+│   │
+│   ├── data/
+│   │   ├── samples/
+│   │   └── test_cases/
+│   │
+│   ├── configs/
+│   │   └── config.yaml
+│   │
+│   ├── utils/
+│   │   ├── audio.py
+│   │   └── text.py
+│   │
+│   ├── demo/
+│   │   ├── gradio_app.py       # UI demo
+│   │
+│   ├── notebooks/
+│   │
+│   ├── tests/
 │
 ├── requirements.txt
 ├── README.md
