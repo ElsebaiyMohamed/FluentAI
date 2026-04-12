@@ -1,213 +1,179 @@
-# 🎙️ FluentAI an English Learning & Pronunciation Assessment Tool
+# 🎙️ FluentAI
 
-An AI-powered system for evaluating **English pronunciation and fluency** from speech recordings of predefined text.
-Built for real-world usage with fast inference and interpretable scoring.
-
----
-
-## 🚀 Overview
-
-This project provides an automated pronunciation assessment pipeline using **self-supervised speech models + forced alignment + GOP scoring**.
-
-It enables:
-
-* 🎯 Pronunciation accuracy evaluation
-* 🗣️ Fluency assessment
-* 📊 Word/phoneme-level feedback
+FluentAI is a FastAPI-based pronunciation assessment service for English speech recordings. It evaluates uploaded audio against expected text and returns pronunciation, fluency, and content scores.
 
 ---
 
-## 🧠 Methodology
+## 🚀 What this project does
 
-### 1. Speech Recognition Backbone
-
-* Model: **Wav2Vec2**
-* Fine-tuned for speech-to-text alignment
-
-### 2. Alignment
-
-* **CTC-based forced alignment**
-* Maps audio frames → phonemes/words
-
-### 3. Scoring (Core Innovation)
-
-* Implemented **Goodness of Pronunciation (GOP)**
-* Measures likelihood of correct phoneme production
-
-### 4. Output
-
-* Overall pronunciation score
-* Word-level feedback
-* Fluency indicators (timing, pauses)
+* Loads a pretrained pronunciation model using Wav2Vec2
+* Accepts audio file uploads via REST
+* Supports optional expected text as a string or uploaded text file
+* Returns pronunciation and fluency scoring results in JSON
 
 ---
 
-## 📊 Performance
-
-| Metric           | Value                   |
-| ---------------- | ----------------------- |
-| Scoring Accuracy | ~88%                    |
-| Inference Time   | ~15 seconds/audio       |
-| Input Type       | Predefined English text |
-
----
-
-## 🏗️ System Architecture
-
-```
-Audio Input
-   ↓
-Preprocessing
-   ↓
-Wav2Vec2 Model
-   ↓
-CTC Alignment
-   ↓
-Phoneme Extraction
-   ↓
-GOP Scoring
-   ↓
-Final Evaluation Report
-```
-
----
-
-## 📁 Project Structure
+## 📁 Project structure
 
 ```
 FluentAI/
-│
-├── src/
-│   ├── app/                    # API & serving layer
-│   │   ├── flask_app.py
-│   │   ├── routes/
-│   │   └── schemas/
-│   │
-│   ├── core/                   # Core ML logic
-│   │   ├── model.py            # Wav2Vec2 loading/inference
-│   │   ├── aligner.py          # CTC alignment
-│   │   ├── gop.py              # GOP scoring
-│   │   └── evaluator.py        # Final scoring pipeline
-│   │
-│   ├── data/
-│   │   ├── samples/
-│   │   └── test_cases/
-│   │
-│   ├── configs/
-│   │   └── config.yaml
-│   │
-│   ├── utils/
-│   │   ├── audio.py
-│   │   └── text.py
-│   │
-│   ├── demo/
-│   │   ├── gradio_app.py       # UI demo
-│   │
-│   ├── notebooks/
-│   │
-│   ├── tests/
-│
-├── requirements.txt
 ├── README.md
-└── .gitignore
+├── requirements.txt
+└── src/
+    ├── app.py
+    ├── controllers/
+    │   ├── BaseController.py
+    │   ├── DataController.py
+    │   └── LessonContraller.py
+    ├── core/
+    │   ├── __init__.py
+    │   ├── model.py
+    │   └── pronunciation.py
+    ├── helpers/
+    │   ├── __init__.py
+    │   └── config.py
+    ├── models/
+    │   ├── __init__.py
+    │   └── enums/
+    │       └── ResponseEnums.py
+    ├── routes/
+    │   ├── __init__.py
+    │   ├── base.py
+    │   └── data.py
+    └── assets/
+        ├── files/
+        └── sounds/
 ```
 
 ---
 
-## ⚙️ Installation
+## ⚙️ Requirements
+
+Install dependencies from `requirements.txt`:
 
 ```bash
-git clone https://github.com/ElsebaiyMohamed/FluentAI.git
-cd FluentAI
-
 pip install -r requirements.txt
 ```
 
 ---
 
-## ▶️ Usage
+## ▶️ Run the app
 
-### Run Flask API
+Start the FastAPI server with uvicorn:
 
 ```bash
-python app/flask_app.py
+uvicorn src.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### API Endpoint
+The service will be available at `http://127.0.0.1:8000`.
 
-**POST** `/evaluate`
+---
 
-#### Request
+## 🧪 API Endpoints
+
+### Health check
+
+`GET /fluentai/v1/health`
+
+Response example:
 
 ```json
 {
-  "audio": "<base64_encoded_audio>",
-  "reference_text": "The quick brown fox jumps over the lazy dog"
+  "status": "ok",
+  "model_loaded": true,
+  "processor_loaded": true
 }
 ```
 
-#### Response
+### App info
+
+`GET /fluentai/v1/info`
+
+Response example:
 
 ```json
 {
-  "overall_score": 0.88,
-  "fluency_score": 0.84,
-  "pronunciation_score": 0.90,
-  "word_scores": [
-    {"word": "quick", "score": 0.92},
-    {"word": "brown", "score": 0.87}
-  ]
+  "data_endpoint": "This endpoint provides information about the data used in the application.",
+  "app_name": "FluentAI",
+  "app_version": "0.1",
+  "author": "your name"
+}
+```
+
+### Upload audio
+
+`POST /fluentai/v1/data/upload/{lesson_id}`
+
+Request parameters:
+* `lesson_id` — path parameter
+* `file` — audio file upload as form-data
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "lesson_id": "lesson1",
+  "file_id": "..."
+}
+```
+
+### Assess pronunciation
+
+`POST /fluentai/v1/data/assess/{lesson_id}`
+
+Request form-data fields:
+* `audio` — audio file upload
+* `expected_text` — optional expected text string
+* `text` — optional text file upload containing expected text
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "lesson_id": "lesson1",
+  "file_id": "...",
+  "scores": {
+    "pronunciation_accuracy": 92,
+    "content_scores": 89,
+    "total_score": 90,
+    "fluency_score": 88
+  },
+  "expected_text": "The quick brown fox jumps over the lazy dog"
 }
 ```
 
 ---
 
-## 🎛️ Gradio Demo
+## 🔧 How it works
 
-Run locally:
-
-```bash
-python demo/gradio_app.py
-```
-
-Features:
-
-* Upload or record audio
-* Input reference text
-* Visual pronunciation feedback
+* `src/app.py` initializes FastAPI and registers routes
+* `src/core/pronunciation.py` loads the model and processes audio
+* `src/routes/base.py` provides health and info endpoints
+* `src/routes/data.py` handles upload and assessment requests
+* `src/controllers/DataController.py` validates and saves uploaded files
+* `src/helpers/config.py` defines settings and allowed extensions
 
 ---
 
-## 🌐 Example Workflow
+## 💡 Notes
 
-1. User reads predefined sentence
-2. Uploads recording
-3. System aligns audio → text
-4. Computes phoneme-level scores
-5. Returns detailed feedback
-
----
-
-## 📌 Use Cases
-
-* Language learning platforms
-* Pronunciation training apps
-* EdTech solutions
-* Automated speaking assessment
+* The pretrained model is `seba3y/wav2vec-base-en-pronunciation-assesment`.
+* Supported audio extensions are WAV, MP3, and M4A.
+* The app automatically uses GPU if available, otherwise it uses CPU.
+* Environment settings can be loaded from `src/.env`.
 
 ---
 
-## 🔥 Key Highlights
+## 📌 Tips
 
-* Real-world deployment-ready pipeline
-* Efficient (~15s latency)
-* Interpretable scoring (GOP)
-* Modular design (easy to extend)
-
----
+* Use Postman or curl to send multipart/form-data requests.
+* Ensure `uvicorn` is installed and run from the project root.
+* If model download fails, check network access and Hugging Face availability.
 
 ---
 
 ## 📜 License
 
- GPL-3.0 license 
+This project is licensed under GPL-3.0.
