@@ -1,46 +1,93 @@
 import logging
 
-
-from fastapi import FastAPI, APIRouter, Depends, UploadFile, status
+from fastapi import APIRouter, Depends, Request, UploadFile, status, File, Form
 from fastapi.responses import JSONResponse
-import  aiofiles
 
-from src.helpers import get_settings, Settings  
+from src.helpers import get_settings, Settings
+from src.core.pronunciation import assess_audio_file
 from ..controllers import DataController
-from ..models import  ResponseStatus
+from ..models import ResponseStatus
 
 logger = logging.getLogger("uvicorn.error")
 
 data_router = APIRouter(
-                                    prefix="/fluentai/v1/data", 
-                                    tags=["api_v1", "data"])
+    prefix="/fluentai/v1/data",
+    tags=["api_v1", "data"],
+)
 
 @data_router.post("/upload/{lesson_id}")
-async def upload_data(lesson_id: str, file: UploadFile, 
-                                app_settings: Settings = Depends(get_settings)
-                                ):
-    
+async def upload_data(
+    lesson_id: str,
+    file: UploadFile = File(...),
+    app_settings: Settings = Depends(get_settings),
+):
     data_controller = DataController()
-    is_valid, st = data_controller.validate_file(file)
+    is_valid, status_value = data_controller.validate_file(file)
     if not is_valid:
         return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            content={"status": st, "lesson_id": lesson_id}
-            )    
-    
-    file_path, file_id = data_controller.gen_unique_filepath(file.filename, lesson_id)
-    
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"status": status_value, "lesson_id": lesson_id},
+        )
+
     try:
-        async with aiofiles.open(file_path, 'wb') as out_file:
-            while content := await file.read(app_settings.FILE_DEFAULT_CHUNK_SIZE):
-                await out_file.write(content)
+        file_path, file_id = await data_controller.save_file(file, lesson_id)
     except Exception as e:
         logger.error(f"Error saving file: {e}")
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            content={f"signal": "error", "explanation": {ResponseStatus.FILE_SAVE_ERROR.value}}
-            )
-    return JSONResponse(
-        status_code=status.HTTP_200_OK, 
-        content={"status": st, "lesson_id": lesson_id, "file_id": file_id} 
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"status": ResponseStatus.FILE_SAVE_ERROR.value, "lesson_id": lesson_id},
         )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": status_value, "lesson_id": lesson_id, "file_id": file_id},
+    )
+
+
+@data_router.post("/assess/{lesson_id}")
+async def assess_pronunciation(
+    request: Request,
+    lesson_id: str,
+    audio: UploadFile = File(...),
+    expected_text: str | None = Form(None),
+    text: UploadFile | None = File(None),
+    app_settings: Settings = Depends(get_settings),
+):
+    if text is not None:
+        raw_text = await text.read()
+        try:
+            expected_text = raw_text.decode("utf-8")
+        except Exception:
+            expected_text = raw_text.decode("latin-1", errors="ignore")
+
+    data_controller = DataController()
+    is_valid, status_value = data_controller.validate_file(audio)
+    if not is_valid:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"status": status_value, "lesson_id": lesson_id},
+        )
+
+    try:
+        audio_path, file_id = await data_controller.save_file(audio, lesson_id)
+        processor = request.app.state.pronunciation_processor
+        model = request.app.state.pronunciation_model
+        scores = assess_audio_file(audio_path, processor, model, expected_text)
+    except Exception as e:
+        logger.error(f"Error processing pronunciation assessment: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"status": ResponseStatus.MODEL_ERROR.value, "lesson_id": lesson_id},
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": ResponseStatus.SUCCESS.value,
+            "lesson_id": lesson_id,
+            "file_id": file_id,
+            "scores": scores,
+            "expected_text": expected_text,
+        },
+    )
+
